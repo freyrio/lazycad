@@ -49,11 +49,14 @@ export class KeyboardManager {
     this.register('2', 'action:camera-top');
     this.register('3', 'action:camera-front');
     this.register('4', 'action:camera-side');
+    this.register('5', 'action:camera-walkthrough');
     this.register('ctrl+s', 'action:save');
     this.register('ctrl+o', 'action:open');
     this.register('f', 'action:fit-view');
     this.register('g', 'action:toggle-grid');
     this.register('tab', 'action:toggle-view');
+    this.register('pageup', 'action:floor-up');
+    this.register('pagedown', 'action:floor-down');
   }
 
   _onKeyDown(e) {

@@ -14,6 +14,7 @@ export class Blueprint {
       calibrationPoints: [],
     };
     this.floors = [];
+    this._activeFloorId = null;
     this.metadata = {
       address: '',
       source: 'new',
@@ -38,6 +39,9 @@ export class Blueprint {
     const floor = new Floor(name);
     floor.elevation = this.floors.length * 3.0; // default 3m per floor
     this.floors.push(floor);
+    if (!this._activeFloorId) {
+      this._activeFloorId = floor.id;
+    }
     this.metadata.modified = Date.now();
     return floor;
   }
@@ -46,7 +50,11 @@ export class Blueprint {
    * Remove a floor by id.
    */
   removeFloor(floorId) {
+    if (this.floors.length <= 1) return; // always keep at least one floor
     this.floors = this.floors.filter(f => f.id !== floorId);
+    if (this._activeFloorId === floorId) {
+      this._activeFloorId = this.floors[0]?.id || null;
+    }
     this.metadata.modified = Date.now();
   }
 
@@ -58,10 +66,81 @@ export class Blueprint {
   }
 
   /**
-   * Get the active (first) floor.
+   * Get the active floor.
    */
   get activeFloor() {
-    return this.floors[0] || null;
+    return this.floors.find(f => f.id === this._activeFloorId) || this.floors[0] || null;
+  }
+
+  /**
+   * Set the active floor by id.
+   */
+  setActiveFloor(floorId) {
+    if (this.getFloor(floorId)) {
+      this._activeFloorId = floorId;
+    }
+  }
+
+  /**
+   * Move floor up in the stack (lower index = lower elevation).
+   */
+  moveFloorUp(floorId) {
+    const idx = this.floors.findIndex(f => f.id === floorId);
+    if (idx < this.floors.length - 1) {
+      [this.floors[idx], this.floors[idx + 1]] = [this.floors[idx + 1], this.floors[idx]];
+      this.metadata.modified = Date.now();
+    }
+  }
+
+  /**
+   * Move floor down in the stack.
+   */
+  moveFloorDown(floorId) {
+    const idx = this.floors.findIndex(f => f.id === floorId);
+    if (idx > 0) {
+      [this.floors[idx], this.floors[idx - 1]] = [this.floors[idx - 1], this.floors[idx]];
+      this.metadata.modified = Date.now();
+    }
+  }
+
+  /**
+   * Duplicate a floor's layout (walls, openings) to a new floor.
+   */
+  copyFloor(sourceFloorId, newName) {
+    const src = this.getFloor(sourceFloorId);
+    if (!src) return null;
+
+    const json = src.toJSON();
+    const copy = Floor.fromJSON(json);
+    // Assign new IDs
+    copy.id = Floor.generateId();
+    copy.name = newName || `${src.name} (copy)`;
+    copy.elevation = src.elevation + src.floorToFloor;
+    copy.bitmap = null; // don't copy bitmap
+
+    // Reassign IDs for all elements to avoid duplicates
+    const idMap = {};
+    for (const wall of copy.walls) {
+      const oldId = wall.id;
+      wall.id = 'w_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      wall.floorId = copy.id;
+      idMap[oldId] = wall.id;
+    }
+    for (const opening of copy.openings) {
+      opening.id = 'op_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      if (idMap[opening.wallId]) {
+        opening.wallId = idMap[opening.wallId];
+      }
+    }
+    for (const room of copy.rooms) {
+      room.id = 'rm_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      room.floorId = copy.id;
+    }
+    copy.annotations = []; // don't copy annotations
+
+    this.floors.push(copy);
+    this.metadata.modified = Date.now();
+    return copy;
   }
 
   /**
@@ -120,6 +199,7 @@ export class Blueprint {
       id: this.id,
       name: this.name,
       scale: { ...this.scale },
+      activeFloorId: this._activeFloorId,
       floors: this.floors.map(f => f.toJSON()),
       metadata: { ...this.metadata },
     };
@@ -136,6 +216,7 @@ export class Blueprint {
     bp.scale = { ...data.scale };
     bp.metadata = { ...data.metadata };
     bp.floors = data.floors.map(f => Floor.fromJSON(f));
+    bp._activeFloorId = data.activeFloorId || bp.floors[0]?.id || null;
     return bp;
   }
 }

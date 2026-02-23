@@ -204,6 +204,9 @@ export class Editor2D {
       this.viewport.markDirty('vectors');
     });
 
+    // Floor switching
+    this.eventBus.on('floor:changed', () => this._syncFloor());
+
     // Invalidate joins when walls change
     this.eventBus.on('walltool:finish', () => {
       this.wallLayer.invalidateJoins();
@@ -288,6 +291,40 @@ export class Editor2D {
       // Reset input
       input.value = '';
     };
+  }
+
+  /**
+   * Sync all layers to the current active floor.
+   */
+  _syncFloor() {
+    const floor = this.blueprint.activeFloor;
+    if (!floor) return;
+
+    this.wallLayer.setFloor(floor);
+    this.openingLayer.setFloor(floor);
+    this.roomLayer.setFloor(floor);
+    this.annotationLayer.setFloor(floor);
+    this.wallLayer.invalidateJoins();
+
+    // Update bitmap layer for this floor
+    if (floor.bitmap && floor.bitmap.image) {
+      this.bitmapLayer.setImage(floor.bitmap);
+    } else if (floor.bitmap && floor.bitmap.url) {
+      // Bitmap has URL but no loaded image — load it
+      ImageLoader.fromURL(floor.bitmap.url)
+        .then(data => {
+          floor.bitmap.image = data.image;
+          this.bitmapLayer.setImage(floor.bitmap);
+          this.viewport.markDirty('bitmap');
+        })
+        .catch(() => {
+          this.bitmapLayer.clearImage();
+        });
+    } else {
+      this.bitmapLayer.clearImage();
+    }
+
+    this.viewport.markAllDirty();
   }
 
   /**

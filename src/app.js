@@ -4,6 +4,7 @@
  */
 import { EventBus } from './utils/EventBus.js';
 import { Platform } from './utils/Platform.js';
+import { Storage } from './utils/Storage.js';
 import { Blueprint } from './core/Blueprint.js';
 import { History } from './core/history/History.js';
 import { Editor2D } from './editor2d/Editor2D.js';
@@ -13,6 +14,7 @@ import { TopBar } from './ui/components/TopBar.js';
 import { Toolbar } from './ui/components/Toolbar.js';
 import { Toast } from './ui/components/Toast.js';
 import { PropertySheet } from './ui/components/PropertySheet.js';
+import { FloorManager } from './ui/components/FloorManager.js';
 import { CalibrateDialog } from './ui/dialogs/CalibrateDialog.js';
 import { Layout } from './ui/Layout.js';
 
@@ -23,6 +25,7 @@ class App {
     this.platform = new Platform();
     this.blueprint = new Blueprint();
     this.history = new History(this.eventBus);
+    this.storage = new Storage();
 
     // Keyboard (desktop)
     this.keyboard = new KeyboardManager(this.eventBus);
@@ -63,6 +66,14 @@ class App {
       { blueprint: this.blueprint, platform: this.platform }
     );
 
+    // Floor manager
+    this.floorManager = new FloorManager(
+      document.getElementById('floor-manager'),
+      this.eventBus,
+      this.blueprint,
+      this.platform
+    );
+
     // Calibration dialog
     this.calibrateDialog = new CalibrateDialog(
       document.getElementById('modal-overlay'),
@@ -91,11 +102,32 @@ class App {
     // Floor height configuration dialog
     this.eventBus.on('action:floor-height', () => this._showFloorHeightDialog());
 
-    // 3D camera presets (numpad 1-4)
+    // 3D camera presets (numpad 1-4, 5 for walkthrough)
     this.eventBus.on('action:camera-perspective', () => this.eventBus.emit('camera:preset', 'perspective'));
     this.eventBus.on('action:camera-top', () => this.eventBus.emit('camera:preset', 'top'));
     this.eventBus.on('action:camera-front', () => this.eventBus.emit('camera:preset', 'front'));
     this.eventBus.on('action:camera-side', () => this.eventBus.emit('camera:preset', 'side'));
+    this.eventBus.on('action:camera-walkthrough', () => this.eventBus.emit('camera:preset', 'walkthrough'));
+
+    // Floor navigation (PageUp / PageDown)
+    this.eventBus.on('action:floor-up', () => {
+      const floors = this.blueprint.floors;
+      const idx = floors.findIndex(f => f.id === this.blueprint.activeFloor?.id);
+      if (idx < floors.length - 1) {
+        this.blueprint.setActiveFloor(floors[idx + 1].id);
+        this.eventBus.emit('floor:changed', floors[idx + 1].id);
+        this.eventBus.emit('toast', floors[idx + 1].name);
+      }
+    });
+    this.eventBus.on('action:floor-down', () => {
+      const floors = this.blueprint.floors;
+      const idx = floors.findIndex(f => f.id === this.blueprint.activeFloor?.id);
+      if (idx > 0) {
+        this.blueprint.setActiveFloor(floors[idx - 1].id);
+        this.eventBus.emit('floor:changed', floors[idx - 1].id);
+        this.eventBus.emit('toast', floors[idx - 1].name);
+      }
+    });
 
     // View switching (2D/3D)
     this.eventBus.on('view:changed', (view) => {
@@ -108,9 +140,9 @@ class App {
       }
     });
 
-    // Save shortcut
+    // Save shortcut (file download)
     this.eventBus.on('action:save', () => {
-      this._saveProject();
+      this._saveProjectFile();
     });
 
     // Open shortcut
@@ -121,8 +153,75 @@ class App {
     // Set device attribute on body
     document.body.setAttribute('data-device', this.platform.device);
 
+    // Initialize storage and auto-save
+    this._initStorage();
+
     // Welcome toast
     this.eventBus.emit('toast', 'BlueprintForge ready');
+  }
+
+  /**
+   * Initialize IndexedDB storage and auto-save.
+   */
+  async _initStorage() {
+    try {
+      await this.storage.init();
+
+      // Try to load last project
+      const projects = await this.storage.listProjects();
+      if (projects.length > 0) {
+        const lastProject = projects[0]; // most recently modified
+        const data = await this.storage.loadProject(lastProject.id);
+        if (data) {
+          this._loadBlueprint(data);
+          this.eventBus.emit('toast', `Loaded: ${this.blueprint.name}`);
+        }
+      }
+    } catch (e) {
+      // IndexedDB may not be available (private browsing, etc.)
+    }
+
+    // Auto-save every 30 seconds
+    this._autoSaveInterval = setInterval(() => this._autoSave(), 30000);
+
+    // Also save on significant events
+    this.eventBus.on('walltool:finish', () => this._debouncedAutoSave());
+    this.eventBus.on('opening:placed', () => this._debouncedAutoSave());
+    this.eventBus.on('room:created', () => this._debouncedAutoSave());
+    this.eventBus.on('element:deleted', () => this._debouncedAutoSave());
+  }
+
+  _debouncedAutoSave() {
+    if (this._autoSaveTimeout) clearTimeout(this._autoSaveTimeout);
+    this._autoSaveTimeout = setTimeout(() => this._autoSave(), 2000);
+  }
+
+  async _autoSave() {
+    try {
+      if (!this.storage._db) return;
+      this.blueprint.metadata.modified = Date.now();
+      await this.storage.saveProject(this.blueprint.toJSON());
+    } catch (e) {
+      // Silent fail for auto-save
+    }
+  }
+
+  /**
+   * Load a Blueprint from JSON data, replacing the current document.
+   */
+  _loadBlueprint(data) {
+    const loaded = Blueprint.fromJSON(data);
+    // Transfer properties to existing blueprint reference
+    this.blueprint.id = loaded.id;
+    this.blueprint.name = loaded.name;
+    this.blueprint.scale = loaded.scale;
+    this.blueprint.floors = loaded.floors;
+    this.blueprint._activeFloorId = loaded._activeFloorId;
+    this.blueprint.metadata = loaded.metadata;
+
+    // Re-sync all editors
+    this.eventBus.emit('floor:changed', this.blueprint.activeFloor?.id);
+    this.eventBus.emit('viewport:redraw');
   }
 
   _showFloorHeightDialog() {
@@ -171,6 +270,7 @@ class App {
       floor.slabThickness = parseFloat(overlay.querySelector('#fh-slab').value) || floor.slabThickness;
       overlay.classList.add('hidden');
       overlay.innerHTML = '';
+      this.eventBus.emit('floor:renamed', floor.id);
       this.eventBus.emit('toast', `${floor.name}: ceiling ${floor.ceilingHeight}m, slab ${floor.slabThickness}m`);
       this.eventBus.emit('viewport:redraw');
     });
@@ -181,7 +281,10 @@ class App {
     });
   }
 
-  _saveProject() {
+  /**
+   * Save project as downloadable file.
+   */
+  _saveProjectFile() {
     const data = JSON.stringify(this.blueprint.toJSON(), null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
