@@ -1,6 +1,8 @@
 /**
- * OpeningCSG — Subtract door/window openings from wall meshes.
- * Uses Babylon.js CSG (Constructive Solid Geometry).
+ * OpeningCSG — Visual opening representation on wall meshes.
+ * Since CSG is not in the base Babylon CDN, we create opening visuals
+ * as separate meshes (glass panes for windows, frame outlines for doors)
+ * rather than boolean-subtracting from walls.
  */
 /* global BABYLON */
 
@@ -11,88 +13,81 @@ export class OpeningCSG {
   }
 
   /**
-   * Subtract openings from a wall mesh.
-   * @param {BABYLON.Mesh} wallMesh - The wall mesh to modify
+   * Create visual representations for openings on a wall.
+   * Returns the original wall mesh plus additional opening visuals as children.
+   * @param {BABYLON.Mesh} wallMesh - The wall mesh (unchanged)
    * @param {Wall} wall - The wall data
    * @param {Opening[]} openings - Openings on this wall
    * @param {number} wallHeight - Wall height in meters
    * @param {number} elevation - Base elevation
-   * @returns {BABYLON.Mesh} - The wall mesh with openings cut out
+   * @returns {BABYLON.Mesh} - The wall mesh with opening children
    */
   subtractOpenings(wallMesh, wall, openings, wallHeight, elevation) {
-    let currentCSG = BABYLON.CSG.FromMesh(wallMesh);
-    const glassMeshes = [];
-
     for (const opening of openings) {
       const posData = wall.pointAtDistance(opening.position);
       if (!posData) continue;
 
       const center = posData.point;
       const dir = posData.direction;
-
-      // Create the cutting box
-      const cutWidth = opening.width;
-      const cutHeight = opening.height;
-      const cutDepth = wall.thickness * 1.5; // Ensure it goes through
+      const angle = Math.atan2(dir.y, dir.x);
       const sillHeight = opening.sillHeight || 0;
 
-      const cutBox = BABYLON.MeshBuilder.CreateBox(
-        `cut_${opening.id}`,
-        { width: cutWidth, height: cutHeight, depth: cutDepth },
-        this._scene
-      );
-
-      // Position and rotate the cutting box
-      const angle = Math.atan2(dir.y, dir.x);
-      cutBox.position = new BABYLON.Vector3(
-        center.x,
-        elevation + sillHeight + cutHeight / 2,
-        center.y
-      );
-      cutBox.rotation.y = -angle;
-
-      // Subtract
-      const cutCSG = BABYLON.CSG.FromMesh(cutBox);
-      currentCSG = currentCSG.subtract(cutCSG);
-
-      // Create glass pane for windows
       if (opening.type === 'window') {
+        // Glass pane
         const glass = BABYLON.MeshBuilder.CreatePlane(
           `glass_${opening.id}`,
-          { width: cutWidth * 0.95, height: cutHeight * 0.95 },
+          { width: opening.width * 0.95, height: opening.height * 0.95 },
           this._scene
         );
         glass.position = new BABYLON.Vector3(
           center.x,
-          elevation + sillHeight + cutHeight / 2,
+          elevation + sillHeight + opening.height / 2,
           center.y
         );
         glass.rotation.y = -angle + Math.PI / 2;
         glass.material = this._materials.get('glass');
-        glassMeshes.push(glass);
+        glass.parent = wallMesh;
+
+        // Window frame (thin box around the glass)
+        const frame = BABYLON.MeshBuilder.CreateBox(
+          `frame_${opening.id}`,
+          {
+            width: opening.width,
+            height: opening.height,
+            depth: wall.thickness * 0.3,
+          },
+          this._scene
+        );
+        frame.position = new BABYLON.Vector3(
+          center.x,
+          elevation + sillHeight + opening.height / 2,
+          center.y
+        );
+        frame.rotation.y = -angle;
+        frame.material = this._materials.get('glass');
+        frame.parent = wallMesh;
+      } else if (opening.type === 'door') {
+        // Door panel (a thin box)
+        const door = BABYLON.MeshBuilder.CreateBox(
+          `door_${opening.id}`,
+          {
+            width: opening.width * 0.95,
+            height: opening.height * 0.95,
+            depth: 0.04,
+          },
+          this._scene
+        );
+        door.position = new BABYLON.Vector3(
+          center.x,
+          elevation + opening.height / 2,
+          center.y
+        );
+        door.rotation.y = -angle;
+        door.material = this._materials.get('doorframe');
+        door.parent = wallMesh;
       }
-
-      // Clean up the cutting box
-      cutBox.dispose();
     }
 
-    // Convert CSG back to mesh
-    const resultMesh = currentCSG.toMesh(
-      wallMesh.name,
-      wallMesh.material,
-      this._scene,
-      true
-    );
-    resultMesh.metadata = wallMesh.metadata;
-
-    // Dispose original wall mesh
-    wallMesh.dispose();
-
-    // If there are glass panes, merge them as children
-    for (const glass of glassMeshes) {
-      glass.parent = resultMesh;
-    }
-
-    return resultMesh;
+    return wallMesh;
   }
 }

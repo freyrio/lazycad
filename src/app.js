@@ -74,14 +74,19 @@ class App {
       this.calibrateDialog.setCalibrateTool(this.editor2d.calibrateTool);
     }
 
-    // 3D Editor
-    this.editor3d = new Editor3D({
-      canvas: document.getElementById('canvas-3d'),
-      container: document.getElementById('viewport-3d'),
-      eventBus: this.eventBus,
-      blueprint: this.blueprint,
-      platform: this.platform,
-    });
+    // 3D Editor (may fail if Babylon.js CDN doesn't load)
+    try {
+      this.editor3d = new Editor3D({
+        canvas: document.getElementById('canvas-3d'),
+        container: document.getElementById('viewport-3d'),
+        eventBus: this.eventBus,
+        blueprint: this.blueprint,
+        platform: this.platform,
+      });
+    } catch (e) {
+      this.editor3d = null;
+      this.eventBus.emit('toast', '3D engine unavailable');
+    }
 
     // Floor height configuration dialog
     this.eventBus.on('action:floor-height', () => this._showFloorHeightDialog());

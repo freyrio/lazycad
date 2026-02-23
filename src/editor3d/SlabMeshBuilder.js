@@ -1,5 +1,7 @@
 /**
  * SlabMeshBuilder — Generate floor slab and room floor meshes.
+ * Uses only basic Babylon primitives (CreateBox, CreateGround) to avoid
+ * earcut dependency required by ExtrudePolygon.
  */
 /* global BABYLON */
 
@@ -10,7 +12,7 @@ export class SlabMeshBuilder {
   }
 
   /**
-   * Build a floor slab from the convex hull of all walls on a floor.
+   * Build a floor slab from the bounding box of all walls on a floor.
    * @param {Floor} floor
    * @param {number} elevation - Base of slab
    * @param {number} thickness - Slab thickness
@@ -27,45 +29,11 @@ export class SlabMeshBuilder {
       }
     }
 
-    if (allPoints.length < 3) return null;
+    if (allPoints.length < 2) return null;
 
-    // Compute convex hull for slab boundary
-    const hull = this._convexHull(allPoints);
-    if (hull.length < 3) return null;
-
-    // Expand hull slightly (0.5m margin)
-    const expandedHull = this._expandPolygon(hull, 0.5);
-
-    // Create extruded polygon
-    const shape = expandedHull.map(p => new BABYLON.Vector3(p.x, 0, p.y));
-
-    try {
-      const slab = BABYLON.MeshBuilder.ExtrudePolygon(
-        'floor_slab',
-        {
-          shape: shape,
-          depth: thickness,
-          sideOrientation: BABYLON.Mesh.DOUBLESIDE,
-        },
-        this._scene
-      );
-
-      slab.position.y = elevation + thickness;
-      slab.material = this._materials.get('slab');
-      slab.metadata = { type: 'slab' };
-      return slab;
-    } catch (e) {
-      // Fallback: simple box
-      return this._buildFallbackSlab(allPoints, elevation, thickness);
-    }
-  }
-
-  /**
-   * Fallback: build slab as a bounding box.
-   */
-  _buildFallbackSlab(points, elevation, thickness) {
+    // Build slab as bounding box of all wall points
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const p of points) {
+    for (const p of allPoints) {
       minX = Math.min(minX, p.x);
       minY = Math.min(minY, p.y);
       maxX = Math.max(maxX, p.x);
@@ -92,101 +60,37 @@ export class SlabMeshBuilder {
 
   /**
    * Build a thin floor mesh for a room polygon.
+   * Uses a bounding box approach to avoid earcut dependency.
    */
   buildRoomFloor(room, elevation, materials) {
-    if (room.polygon.length < 3) return null;
+    if (!room.polygon || room.polygon.length < 3) return null;
 
-    const shape = room.polygon.map(p => new BABYLON.Vector3(p.x, 0, p.y));
-    const floorThickness = 0.01; // Very thin
-
-    try {
-      const mesh = BABYLON.MeshBuilder.ExtrudePolygon(
-        `room_floor_${room.id}`,
-        {
-          shape: shape,
-          depth: floorThickness,
-          sideOrientation: BABYLON.Mesh.DOUBLESIDE,
-        },
-        this._scene
-      );
-
-      mesh.position.y = elevation + floorThickness;
-      mesh.material = materials.getFloorMaterial(room.floorMaterial);
-      mesh.metadata = { type: 'room_floor', roomId: room.id };
-      return mesh;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /**
-   * Compute convex hull using Graham scan.
-   */
-  _convexHull(points) {
-    if (points.length < 3) return [...points];
-
-    // Find bottom-most point (and leftmost if tie)
-    let pivot = points[0];
-    for (const p of points) {
-      if (p.y < pivot.y || (p.y === pivot.y && p.x < pivot.x)) {
-        pivot = p;
-      }
+    // Compute bounding box of the room polygon
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of room.polygon) {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
     }
 
-    // Sort by polar angle
-    const sorted = points
-      .filter(p => p !== pivot)
-      .sort((a, b) => {
-        const angleA = Math.atan2(a.y - pivot.y, a.x - pivot.x);
-        const angleB = Math.atan2(b.y - pivot.y, b.x - pivot.x);
-        if (Math.abs(angleA - angleB) < 1e-10) {
-          const distA = (a.x - pivot.x) ** 2 + (a.y - pivot.y) ** 2;
-          const distB = (b.x - pivot.x) ** 2 + (b.y - pivot.y) ** 2;
-          return distA - distB;
-        }
-        return angleA - angleB;
-      });
+    const width = maxX - minX;
+    const depth = maxY - minY;
+    if (width < 0.01 || depth < 0.01) return null;
 
-    const hull = [pivot];
-    for (const p of sorted) {
-      while (hull.length >= 2) {
-        const a = hull[hull.length - 2];
-        const b = hull[hull.length - 1];
-        const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
-        if (cross <= 0) {
-          hull.pop();
-        } else {
-          break;
-        }
-      }
-      hull.push(p);
-    }
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const floorThickness = 0.01;
 
-    return hull;
-  }
+    const mesh = BABYLON.MeshBuilder.CreateBox(
+      `room_floor_${room.id}`,
+      { width, height: floorThickness, depth },
+      this._scene
+    );
 
-  /**
-   * Expand a polygon outward by a margin.
-   */
-  _expandPolygon(polygon, margin) {
-    const centroid = { x: 0, y: 0 };
-    for (const p of polygon) {
-      centroid.x += p.x;
-      centroid.y += p.y;
-    }
-    centroid.x /= polygon.length;
-    centroid.y /= polygon.length;
-
-    return polygon.map(p => {
-      const dx = p.x - centroid.x;
-      const dy = p.y - centroid.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 0.001) return { ...p };
-      const factor = (dist + margin) / dist;
-      return {
-        x: centroid.x + dx * factor,
-        y: centroid.y + dy * factor,
-      };
-    });
+    mesh.position = new BABYLON.Vector3(cx, elevation + floorThickness / 2, cy);
+    mesh.material = materials.getFloorMaterial(room.floorMaterial);
+    mesh.metadata = { type: 'room_floor', roomId: room.id };
+    return mesh;
   }
 }
