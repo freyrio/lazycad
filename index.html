@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>BlueprintForge</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header id="top-bar"></header>
+    <main id="viewport-container">
+      <div id="viewport-2d" class="viewport">
+        <canvas id="layer-bitmap" class="viewport-layer"></canvas>
+        <canvas id="layer-grid" class="viewport-layer"></canvas>
+        <canvas id="layer-vectors" class="viewport-layer"></canvas>
+        <canvas id="layer-interaction" class="viewport-layer"></canvas>
+      </div>
+      <div id="viewport-3d" class="viewport hidden"></div>
+    </main>
+    <nav id="bottom-toolbar"></nav>
+    <aside id="property-panel" class="hidden"></aside>
+    <div id="bottom-sheet" class="hidden"></div>
+    <div id="toast-container"></div>
+    <div id="modal-overlay" class="hidden"></div>
+  </div>
+
+  <input type="file" id="file-input" accept="image/*,.pdf" style="display:none">
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
