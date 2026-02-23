@@ -16,6 +16,7 @@ import { WallTool } from './tools/WallTool.js';
 import { SelectTool } from './tools/SelectTool.js';
 import { EraseTool } from './tools/EraseTool.js';
 import { MeasureTool } from './tools/MeasureTool.js';
+import { CalibrateTool } from './tools/CalibrateTool.js';
 import { ImageLoader } from '../io/ImageLoader.js';
 
 export class Editor2D {
@@ -85,6 +86,10 @@ export class Editor2D {
     this.toolStateMachine.register('wall', new WallTool(eventBus, this.toolContext));
     this.toolStateMachine.register('erase', new EraseTool(eventBus, this.toolContext));
     this.toolStateMachine.register('measure', new MeasureTool(eventBus, this.toolContext));
+    this.toolStateMachine.register('calibrate', new CalibrateTool(eventBus, this.toolContext));
+
+    // Expose calibrate tool for dialog callback
+    this.calibrateTool = this.toolStateMachine.getTool('calibrate');
 
     // Activate default tool
     this.toolStateMachine.activate('select');
@@ -163,6 +168,23 @@ export class Editor2D {
 
     // Layer bitmap changes
     this.eventBus.on('layer:bitmap:changed', () => this.viewport.markDirty('bitmap'));
+
+    // Haptic feedback on snap
+    this.eventBus.on('snap:hit', ({ type }) => {
+      if (type === 'endpoint') {
+        this.platform.haptic(15);
+      } else if (type === 'wall') {
+        this.platform.haptic(10);
+      } else if (type !== 'grid') {
+        this.platform.haptic(8);
+      }
+    });
+
+    // Wall preset cycling (T key handled via keyboard)
+    this.eventBus.on('action:cycle-wall-preset', () => {
+      const wallTool = this.toolStateMachine.getTool('wall');
+      if (wallTool) wallTool.cyclePreset();
+    });
   }
 
   _startRenderLoop() {

@@ -1,5 +1,6 @@
 /**
- * CursorLayer — Crosshair, tool preview, snap indicators on the interaction canvas.
+ * CursorLayer — Crosshair, tool preview, snap indicators, magnifier loupe
+ * on the interaction canvas.
  */
 import { Units } from '../../utils/Units.js';
 
@@ -28,6 +29,10 @@ export class CursorLayer {
 
     // Measurement display
     this.measureText = null;
+
+    // Calibration
+    this.calibrationPoints = []; // [{x,y}, ...] placed calibration markers
+    this.loupe = null; // { screenX, screenY, worldX, worldY, radius, zoom, offsetX, offsetY }
   }
 
   /**
@@ -147,6 +152,51 @@ export class CursorLayer {
       }
     }
 
+    // Draw calibration markers
+    if (this.calibrationPoints.length > 0) {
+      for (let i = 0; i < this.calibrationPoints.length; i++) {
+        const cp = this.calibrationPoints[i];
+        const sp = viewport.worldToScreen(cp.x, cp.y);
+        const r = 8;
+
+        // Crosshair marker
+        ctx.strokeStyle = '#e94560';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sp.x - r, sp.y);
+        ctx.lineTo(sp.x + r, sp.y);
+        ctx.moveTo(sp.x, sp.y - r);
+        ctx.lineTo(sp.x, sp.y + r);
+        ctx.stroke();
+
+        // Circle
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Label
+        ctx.font = '11px -apple-system, sans-serif';
+        ctx.fillStyle = '#e94560';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`P${i + 1}`, sp.x + r + 4, sp.y - 4);
+      }
+
+      // Line between calibration points
+      if (this.calibrationPoints.length === 2) {
+        const p1 = viewport.worldToScreen(this.calibrationPoints[0].x, this.calibrationPoints[0].y);
+        const p2 = viewport.worldToScreen(this.calibrationPoints[1].x, this.calibrationPoints[1].y);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = '#e94560';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
     // Draw crosshair
     if (this.showCrosshair && this.screenX > 0) {
       const x = Math.round(this.screenX) + 0.5;
@@ -175,6 +225,105 @@ export class CursorLayer {
       ctx.textBaseline = 'top';
       ctx.fillText(coordText, this.screenX + 16, this.screenY + 16);
     }
+
+    // Draw magnifier loupe
+    if (this.loupe) {
+      this._renderLoupe(ctx, viewport);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Render the magnifier loupe above the user's finger/cursor.
+   */
+  _renderLoupe(ctx, viewport) {
+    const l = this.loupe;
+    const r = l.radius;
+
+    // Position loupe above the cursor (offset to not cover finger)
+    let lx = l.screenX + l.offsetX;
+    let ly = l.screenY + l.offsetY;
+
+    // Clamp to viewport bounds
+    lx = Math.max(r + 4, Math.min(viewport.width - r - 4, lx));
+    ly = Math.max(r + 4, Math.min(viewport.height - r - 4, ly));
+
+    ctx.save();
+
+    // Clip to circle
+    ctx.beginPath();
+    ctx.arc(lx, ly, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Dark background
+    ctx.fillStyle = 'rgba(26, 26, 46, 0.95)';
+    ctx.fillRect(lx - r, ly - r, r * 2, r * 2);
+
+    // Draw magnified view: map the world area around the cursor
+    // We want to show the viewport content at higher zoom around cursor position
+    const zoomScale = viewport.scale * l.zoom;
+    ctx.save();
+    ctx.translate(lx, ly);
+    ctx.scale(l.zoom, l.zoom);
+    ctx.translate(-l.screenX, -l.screenY);
+
+    // Draw a mini grid for reference
+    const gridSpacing = 10 / zoomScale; // adaptive grid
+    const visR = r / l.zoom;
+    const worldCX = l.worldX;
+    const worldCY = l.worldY;
+    const startX = Math.floor((worldCX - visR / viewport.scale) / gridSpacing) * gridSpacing;
+    const endX = Math.ceil((worldCX + visR / viewport.scale) / gridSpacing) * gridSpacing;
+    const startY = Math.floor((worldCY - visR / viewport.scale) / gridSpacing) * gridSpacing;
+    const endY = Math.ceil((worldCY + visR / viewport.scale) / gridSpacing) * gridSpacing;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.5 / l.zoom;
+    for (let x = startX; x <= endX; x += gridSpacing) {
+      const sx = viewport.worldToScreen(x, 0);
+      ctx.beginPath();
+      ctx.moveTo(sx.x, ly / l.zoom + (l.screenY - ly) / l.zoom - r / l.zoom);
+      ctx.lineTo(sx.x, ly / l.zoom + (l.screenY - ly) / l.zoom + r / l.zoom);
+      ctx.stroke();
+    }
+    for (let y = startY; y <= endY; y += gridSpacing) {
+      const sy = viewport.worldToScreen(0, y);
+      ctx.beginPath();
+      ctx.moveTo(lx / l.zoom + (l.screenX - lx) / l.zoom - r / l.zoom, sy.y);
+      ctx.lineTo(lx / l.zoom + (l.screenX - lx) / l.zoom + r / l.zoom, sy.y);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+
+    // Crosshair in the center of loupe
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(lx - 12, ly);
+    ctx.lineTo(lx - 4, ly);
+    ctx.moveTo(lx + 4, ly);
+    ctx.lineTo(lx + 12, ly);
+    ctx.moveTo(lx, ly - 12);
+    ctx.lineTo(lx, ly - 4);
+    ctx.moveTo(lx, ly + 4);
+    ctx.lineTo(lx, ly + 12);
+    ctx.stroke();
+
+    // Border
+    ctx.beginPath();
+    ctx.arc(lx, ly, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(233, 69, 96, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Outer glow
+    ctx.beginPath();
+    ctx.arc(lx, ly, r + 1, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(233, 69, 96, 0.3)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
 
     ctx.restore();
   }

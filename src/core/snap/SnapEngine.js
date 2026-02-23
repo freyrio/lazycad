@@ -13,6 +13,7 @@ export class SnapEngine {
     this.providers = [];
     this.enabled = true;
     this.snapRadius = 15; // screen pixels
+    this._lastSnapType = null; // for haptic dedup
   }
 
   /**
@@ -65,6 +66,14 @@ export class SnapEngine {
 
     if (bestResult) {
       bestResult.guides = guides;
+
+      // Emit snap event for haptic feedback (only when snap type changes)
+      if (bestResult.type !== this._lastSnapType) {
+        this._lastSnapType = bestResult.type;
+        this.eventBus.emit('snap:hit', { type: bestResult.type });
+      }
+    } else if (this._lastSnapType) {
+      this._lastSnapType = null;
     }
 
     return bestResult;

@@ -574,6 +574,120 @@ html, body {
   margin: 4px 0;
 }
 
+/* Calibration Dialog */
+.calibrate-modal {
+  min-width: 340px;
+}
+
+.calibrate-hint {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.calibrate-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cal-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  font-family: var(--font-mono);
+}
+
+.cal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cal-input.input-error {
+  border-color: var(--accent);
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.cal-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+}
+
+.cal-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.calibrate-presets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.calibrate-presets-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.cal-preset {
+  padding: 4px 10px;
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.calibrate-rotation-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.calibrate-rotation-check input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.calibrate-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+.calibrate-result-label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.calibrate-result-value {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
 /* Crosshair cursor for drawing */
 .viewport.crosshair {
   cursor: crosshair;

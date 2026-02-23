@@ -83,6 +83,13 @@ export class ToolStateMachine {
   get isSpacePan() { return this._spacePanActive; }
 
   /**
+   * Get a tool instance by name.
+   */
+  getTool(name) {
+    return this._tools.get(name) || null;
+  }
+
+  /**
    * Get all registered tool names.
    */
   getToolNames() {

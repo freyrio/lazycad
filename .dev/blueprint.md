@@ -543,15 +543,15 @@ Or as a single ZIP file with `.bpf` extension for portability.
 
 **Goal: Load a blueprint and draw on it**
 
-- [ ] Project scaffold: HTML, CSS, app.js entry point
-- [ ] 2D viewport with pan/zoom (touch + mouse)
-- [ ] Bitmap loader (PNG/JPG) with display in viewport
-- [ ] Basic input abstraction (InputManager, GestureRecognizer)
-- [ ] Grid overlay rendering
-- [ ] Simple wall drawing tool (click-click polyline, no joins)
-- [ ] Viewport transform (world ↔ screen coordinate conversion)
-- [ ] Responsive layout with top bar and bottom toolbar
-- [ ] Platform detection (phone/tablet/desktop)
+- [x] Project scaffold: HTML, CSS, app.js entry point
+- [x] 2D viewport with pan/zoom (touch + mouse)
+- [x] Bitmap loader (PNG/JPG) with display in viewport
+- [x] Basic input abstraction (InputManager, GestureRecognizer)
+- [x] Grid overlay rendering
+- [x] Simple wall drawing tool (click-click polyline, no joins)
+- [x] Viewport transform (world ↔ screen coordinate conversion)
+- [x] Responsive layout with top bar and bottom toolbar
+- [x] Platform detection (phone/tablet/desktop)
 
 **Deliverable**: Can load an image, pan/zoom, and draw lines on top of it.
 
@@ -559,17 +559,17 @@ Or as a single ZIP file with `.bpf` extension for portability.
 
 **Goal: Accurately traced walls at real-world scale**
 
-- [ ] Two-point calibration tool with magnifier loupe
-- [ ] Scale-factor calibration (select ratio + paper size)
-- [ ] Rotation correction
-- [ ] Wall entity with thickness rendering
-- [ ] Snap engine: grid, endpoint, angle lock
-- [ ] Visual snap indicators
-- [ ] Wall thickness presets (exterior 0.20m, interior 0.10m)
-- [ ] Select tool: tap to select wall, show properties
-- [ ] Property bottom sheet (mobile) / side panel (desktop)
-- [ ] Undo/redo system
-- [ ] Haptic feedback on snap (mobile)
+- [x] Two-point calibration tool with magnifier loupe
+- [x] Scale-factor calibration (select ratio + paper size)
+- [x] Rotation correction
+- [x] Wall entity with thickness rendering
+- [x] Snap engine: grid, endpoint, angle lock
+- [x] Visual snap indicators
+- [x] Wall thickness presets (exterior 0.20m, interior 0.10m)
+- [x] Select tool: tap to select wall, show properties
+- [x] Property bottom sheet (mobile) / side panel (desktop)
+- [x] Undo/redo system
+- [x] Haptic feedback on snap (mobile)
 
 **Deliverable**: Can calibrate a blueprint and draw walls at correct real-world dimensions.
 

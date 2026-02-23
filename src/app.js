@@ -12,6 +12,7 @@ import { TopBar } from './ui/components/TopBar.js';
 import { Toolbar } from './ui/components/Toolbar.js';
 import { Toast } from './ui/components/Toast.js';
 import { PropertySheet } from './ui/components/PropertySheet.js';
+import { CalibrateDialog } from './ui/dialogs/CalibrateDialog.js';
 import { Layout } from './ui/Layout.js';
 
 class App {
@@ -60,6 +61,17 @@ class App {
       this.eventBus,
       { blueprint: this.blueprint, platform: this.platform }
     );
+
+    // Calibration dialog
+    this.calibrateDialog = new CalibrateDialog(
+      document.getElementById('modal-overlay'),
+      this.eventBus,
+      { blueprint: this.blueprint, platform: this.platform }
+    );
+    // Wire dialog to calibrate tool
+    if (this.editor2d.calibrateTool) {
+      this.calibrateDialog.setCalibrateTool(this.editor2d.calibrateTool);
+    }
 
     // View switching (2D/3D)
     this.eventBus.on('view:changed', (view) => {

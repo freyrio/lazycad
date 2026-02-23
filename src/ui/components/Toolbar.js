@@ -40,6 +40,12 @@ export class Toolbar {
       },
       { separator: true },
       {
+        name: 'calibrate',
+        label: 'Calibrate',
+        icon: `<svg viewBox="0 0 24 24"><path d="M2 2l4 4m12 12l4 4M2 22l4-4m12-12l4-4"/><circle cx="12" cy="12" r="6" fill="none"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
+        shortcut: 'C',
+      },
+      {
         name: 'measure',
         label: 'Measure',
         icon: `<svg viewBox="0 0 24 24"><path d="M2 12h4l2-3 3 6 2-3h4"/><line x1="21" y1="12" x2="22" y2="12"/></svg>`,

@@ -42,6 +42,7 @@ export class KeyboardManager {
     this.register('m', 'tool:measure');
     this.register('e', 'tool:erase');
     this.register('c', 'tool:calibrate');
+    this.register('t', 'action:cycle-wall-preset');
     this.register('ctrl+s', 'action:save');
     this.register('ctrl+o', 'action:open');
     this.register('f', 'action:fit-view');

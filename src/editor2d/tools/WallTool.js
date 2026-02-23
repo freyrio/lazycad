@@ -22,11 +22,43 @@ export class WallTool {
     this.material = 'concrete';
     this.isExterior = true;
 
+    // Thickness presets
+    this.presets = [
+      { label: 'Exterior',  thickness: 0.20, material: 'concrete', isExterior: true },
+      { label: 'Interior',  thickness: 0.10, material: 'partition', isExterior: false },
+      { label: 'Timber',    thickness: 0.15, material: 'timber', isExterior: false },
+      { label: 'Thick',     thickness: 0.30, material: 'concrete', isExterior: true },
+    ];
+    this._activePreset = 0;
+
     this._boundTap = (e) => this._onTap(e);
     this._boundMove = (e) => this._onMove(e);
     this._boundDoubleTap = (e) => this._onDoubleTap(e);
     this._boundCancel = () => this._cancel();
   }
+
+  /**
+   * Switch to a named thickness preset by index.
+   */
+  setPreset(index) {
+    if (index < 0 || index >= this.presets.length) return;
+    this._activePreset = index;
+    const p = this.presets[index];
+    this.thickness = p.thickness;
+    this.material = p.material;
+    this.isExterior = p.isExterior;
+    this.eventBus.emit('walltool:preset', { index, preset: p });
+    this.eventBus.emit('toast', `Wall: ${p.label} (${p.thickness * 100}cm ${p.material})`);
+  }
+
+  /**
+   * Cycle to next preset.
+   */
+  cyclePreset() {
+    this.setPreset((this._activePreset + 1) % this.presets.length);
+  }
+
+  get activePreset() { return this._activePreset; }
 
   activate() {
     this.eventBus.on('gesture:tap', this._boundTap);
