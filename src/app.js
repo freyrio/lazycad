@@ -20,6 +20,7 @@ import { CalibrateDialog } from './ui/dialogs/CalibrateDialog.js';
 import { ExportDialog } from './ui/dialogs/ExportDialog.js';
 import { ProjectFile } from './io/ProjectFile.js';
 import { PDFRenderer } from './io/PDFRenderer.js';
+import { DemoProject } from './io/DemoProject.js';
 import { Layout } from './ui/Layout.js';
 
 class App {
@@ -195,9 +196,13 @@ class App {
           this._loadBlueprint(data);
           this.eventBus.emit('toast', `Loaded: ${this.blueprint.name}`);
         }
+      } else {
+        // No saved project — load demo
+        this._loadDemo();
       }
     } catch (e) {
-      // IndexedDB may not be available
+      // IndexedDB may not be available — load demo as fallback
+      this._loadDemo();
     }
 
     // Auto-save every 30 seconds
@@ -223,6 +228,15 @@ class App {
     } catch (e) {
       // Silent fail
     }
+  }
+
+  /**
+   * Load the demo house project.
+   */
+  _loadDemo() {
+    const demoData = DemoProject.generate();
+    this._loadBlueprint(demoData);
+    this.eventBus.emit('toast', 'Demo project loaded — switch to 3D to verify');
   }
 
   /**
@@ -288,6 +302,7 @@ class App {
           <button class="btn btn-secondary" id="menu-save">Save Project</button>
           <button class="btn btn-secondary" id="menu-export">Export...</button>
           <button class="btn btn-secondary" id="menu-floor-height">Floor Settings</button>
+          <button class="btn btn-secondary" id="menu-demo">Load Demo Project</button>
           <button class="btn btn-secondary" id="menu-tutorial">Tutorial</button>
         </div>
         <div class="modal-actions">
@@ -320,6 +335,10 @@ class App {
     overlay.querySelector('#menu-floor-height').addEventListener('click', () => {
       close();
       this.eventBus.emit('action:floor-height');
+    });
+    overlay.querySelector('#menu-demo').addEventListener('click', () => {
+      close();
+      this._loadDemo();
     });
     overlay.querySelector('#menu-tutorial').addEventListener('click', () => {
       close();
