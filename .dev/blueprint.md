@@ -594,15 +594,15 @@ Or as a single ZIP file with `.bpf` extension for portability.
 
 **Goal: See the floor plan in 3D**
 
-- [ ] Babylon.js scene setup
-- [ ] Camera controller (orbit + presets)
-- [ ] Wall mesh extrusion from 2D polygons
-- [ ] CSG opening subtraction
-- [ ] Floor slab generation
-- [ ] Basic material library (concrete, glass, wood)
-- [ ] 2D/3D view toggle
-- [ ] Floor height configuration dialog
-- [ ] Touch controls for 3D navigation
+- [x] Babylon.js scene setup
+- [x] Camera controller (orbit + presets)
+- [x] Wall mesh extrusion from 2D polygons
+- [x] CSG opening subtraction
+- [x] Floor slab generation
+- [x] Basic material library (concrete, glass, wood)
+- [x] 2D/3D view toggle
+- [x] Floor height configuration dialog
+- [x] Touch controls for 3D navigation
 
 **Deliverable**: Can switch between 2D and 3D views of the same floor plan.
 

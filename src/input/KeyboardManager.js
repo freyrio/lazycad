@@ -43,7 +43,12 @@ export class KeyboardManager {
     this.register('e', 'tool:erase');
     this.register('c', 'tool:calibrate');
     this.register('r', 'tool:room');
+    this.register('h', 'action:floor-height');
     this.register('t', 'action:cycle-wall-preset');
+    this.register('1', 'action:camera-perspective');
+    this.register('2', 'action:camera-top');
+    this.register('3', 'action:camera-front');
+    this.register('4', 'action:camera-side');
     this.register('ctrl+s', 'action:save');
     this.register('ctrl+o', 'action:open');
     this.register('f', 'action:fit-view');

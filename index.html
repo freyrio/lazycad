@@ -7,6 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>BlueprintForge</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
 </head>
 <body>
   <div id="app">
@@ -18,7 +19,9 @@
         <canvas id="layer-vectors" class="viewport-layer"></canvas>
         <canvas id="layer-interaction" class="viewport-layer"></canvas>
       </div>
-      <div id="viewport-3d" class="viewport hidden"></div>
+      <div id="viewport-3d" class="viewport hidden">
+        <canvas id="canvas-3d" class="viewport-layer"></canvas>
+      </div>
     </main>
     <nav id="bottom-toolbar"></nav>
     <aside id="property-panel" class="hidden"></aside>
