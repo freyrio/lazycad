@@ -15,7 +15,11 @@ import { Toolbar } from './ui/components/Toolbar.js';
 import { Toast } from './ui/components/Toast.js';
 import { PropertySheet } from './ui/components/PropertySheet.js';
 import { FloorManager } from './ui/components/FloorManager.js';
+import { Tutorial } from './ui/components/Tutorial.js';
 import { CalibrateDialog } from './ui/dialogs/CalibrateDialog.js';
+import { ExportDialog } from './ui/dialogs/ExportDialog.js';
+import { ProjectFile } from './io/ProjectFile.js';
+import { PDFRenderer } from './io/PDFRenderer.js';
 import { Layout } from './ui/Layout.js';
 
 class App {
@@ -80,7 +84,6 @@ class App {
       this.eventBus,
       { blueprint: this.blueprint, platform: this.platform }
     );
-    // Wire dialog to calibrate tool
     if (this.editor2d.calibrateTool) {
       this.calibrateDialog.setCalibrateTool(this.editor2d.calibrateTool);
     }
@@ -98,6 +101,16 @@ class App {
       this.editor3d = null;
       this.eventBus.emit('toast', '3D engine unavailable');
     }
+
+    // Export dialog
+    this.exportDialog = new ExportDialog(
+      document.getElementById('modal-overlay'),
+      this.eventBus,
+      { blueprint: this.blueprint, editor3d: this.editor3d }
+    );
+
+    // Tutorial
+    this.tutorial = new Tutorial(this.eventBus, this.platform);
 
     // Floor height configuration dialog
     this.eventBus.on('action:floor-height', () => this._showFloorHeightDialog());
@@ -141,20 +154,27 @@ class App {
     });
 
     // Save shortcut (file download)
-    this.eventBus.on('action:save', () => {
-      this._saveProjectFile();
-    });
+    this.eventBus.on('action:save', () => this._saveProjectFile());
 
-    // Open shortcut
-    this.eventBus.on('action:open', () => {
-      this.eventBus.emit('action:import');
-    });
+    // Open project file
+    this.eventBus.on('action:open', () => this._openProjectFile());
+
+    // Export dialog
+    this.eventBus.on('action:export-menu', () => this.eventBus.emit('action:export'));
+
+    // Menu button opens export dialog
+    this.eventBus.on('action:menu', () => this._showAppMenu());
 
     // Set device attribute on body
     document.body.setAttribute('data-device', this.platform.device);
 
     // Initialize storage and auto-save
     this._initStorage();
+
+    // Show tutorial for first-time users
+    if (this.tutorial.shouldShow()) {
+      setTimeout(() => this.tutorial.start(), 1500);
+    }
 
     // Welcome toast
     this.eventBus.emit('toast', 'BlueprintForge ready');
@@ -167,10 +187,9 @@ class App {
     try {
       await this.storage.init();
 
-      // Try to load last project
       const projects = await this.storage.listProjects();
       if (projects.length > 0) {
-        const lastProject = projects[0]; // most recently modified
+        const lastProject = projects[0];
         const data = await this.storage.loadProject(lastProject.id);
         if (data) {
           this._loadBlueprint(data);
@@ -178,13 +197,13 @@ class App {
         }
       }
     } catch (e) {
-      // IndexedDB may not be available (private browsing, etc.)
+      // IndexedDB may not be available
     }
 
     // Auto-save every 30 seconds
     this._autoSaveInterval = setInterval(() => this._autoSave(), 30000);
 
-    // Also save on significant events
+    // Save on significant events
     this.eventBus.on('walltool:finish', () => this._debouncedAutoSave());
     this.eventBus.on('opening:placed', () => this._debouncedAutoSave());
     this.eventBus.on('room:created', () => this._debouncedAutoSave());
@@ -202,7 +221,7 @@ class App {
       this.blueprint.metadata.modified = Date.now();
       await this.storage.saveProject(this.blueprint.toJSON());
     } catch (e) {
-      // Silent fail for auto-save
+      // Silent fail
     }
   }
 
@@ -211,7 +230,6 @@ class App {
    */
   _loadBlueprint(data) {
     const loaded = Blueprint.fromJSON(data);
-    // Transfer properties to existing blueprint reference
     this.blueprint.id = loaded.id;
     this.blueprint.name = loaded.name;
     this.blueprint.scale = loaded.scale;
@@ -219,9 +237,95 @@ class App {
     this.blueprint._activeFloorId = loaded._activeFloorId;
     this.blueprint.metadata = loaded.metadata;
 
-    // Re-sync all editors
     this.eventBus.emit('floor:changed', this.blueprint.activeFloor?.id);
     this.eventBus.emit('viewport:redraw');
+  }
+
+  /**
+   * Open a .bpf.json project file.
+   */
+  _openProjectFile() {
+    const input = document.getElementById('project-input');
+    if (!input) return;
+
+    input.click();
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const loaded = await ProjectFile.importProject(file);
+        this.blueprint.id = loaded.id;
+        this.blueprint.name = loaded.name;
+        this.blueprint.scale = loaded.scale;
+        this.blueprint.floors = loaded.floors;
+        this.blueprint._activeFloorId = loaded._activeFloorId;
+        this.blueprint.metadata = loaded.metadata;
+
+        this.eventBus.emit('floor:changed', this.blueprint.activeFloor?.id);
+        this.eventBus.emit('viewport:redraw');
+        this.eventBus.emit('toast', `Opened: ${this.blueprint.name}`);
+      } catch (err) {
+        this.eventBus.emit('toast', `Failed to open: ${err.message}`);
+      }
+
+      input.value = '';
+    };
+  }
+
+  /**
+   * Show app menu with export, open, tutorial options.
+   */
+  _showAppMenu() {
+    const overlay = document.getElementById('modal-overlay');
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `
+      <div class="modal" style="min-width: 280px;">
+        <h2>Menu</h2>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn btn-secondary" id="menu-open">Open Project (.bpf.json)</button>
+          <button class="btn btn-secondary" id="menu-import">Import Blueprint Image</button>
+          <button class="btn btn-secondary" id="menu-save">Save Project</button>
+          <button class="btn btn-secondary" id="menu-export">Export...</button>
+          <button class="btn btn-secondary" id="menu-floor-height">Floor Settings</button>
+          <button class="btn btn-secondary" id="menu-tutorial">Tutorial</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="menu-close">Close</button>
+        </div>
+      </div>
+    `;
+
+    const close = () => {
+      overlay.classList.add('hidden');
+      overlay.innerHTML = '';
+    };
+
+    overlay.querySelector('#menu-open').addEventListener('click', () => {
+      close();
+      this._openProjectFile();
+    });
+    overlay.querySelector('#menu-import').addEventListener('click', () => {
+      close();
+      this.eventBus.emit('action:import');
+    });
+    overlay.querySelector('#menu-save').addEventListener('click', () => {
+      close();
+      this._saveProjectFile();
+    });
+    overlay.querySelector('#menu-export').addEventListener('click', () => {
+      close();
+      this.eventBus.emit('action:export');
+    });
+    overlay.querySelector('#menu-floor-height').addEventListener('click', () => {
+      close();
+      this.eventBus.emit('action:floor-height');
+    });
+    overlay.querySelector('#menu-tutorial').addEventListener('click', () => {
+      close();
+      this.tutorial.start();
+    });
+    overlay.querySelector('#menu-close').addEventListener('click', close);
   }
 
   _showFloorHeightDialog() {

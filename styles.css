@@ -784,6 +784,125 @@ html, body {
   color: #f44;
 }
 
+/* Export Dialog */
+.export-modal {
+  min-width: 360px;
+  max-width: 480px;
+}
+
+.export-section {
+  margin-bottom: 16px;
+}
+
+.export-section h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.export-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.export-btn {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 120px;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.export-btn:hover:not([disabled]) {
+  border-color: var(--accent);
+  background: var(--hover);
+}
+
+.export-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.export-icon {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.export-label {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.export-desc {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Tutorial Overlay */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 500;
+}
+
+.tutorial-spotlight {
+  position: absolute;
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  z-index: 501;
+  pointer-events: none;
+}
+
+.tutorial-tooltip {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px 20px;
+  min-width: 260px;
+  max-width: 320px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 502;
+}
+
+.tutorial-step-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.tutorial-tooltip h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.tutorial-tooltip p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.tutorial-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* Hidden utility */
 .hidden {
   display: none !important;

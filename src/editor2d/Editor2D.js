@@ -23,6 +23,7 @@ import { CalibrateTool } from './tools/CalibrateTool.js';
 import { OpeningTool } from './tools/OpeningTool.js';
 import { RoomTool } from './tools/RoomTool.js';
 import { ImageLoader } from '../io/ImageLoader.js';
+import { PDFRenderer } from '../io/PDFRenderer.js';
 
 export class Editor2D {
   /**
@@ -261,7 +262,25 @@ export class Editor2D {
       if (!file) return;
 
       try {
-        const bitmapData = await ImageLoader.fromFile(file);
+        let bitmapData;
+
+        // Check if it's a PDF file
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          if (PDFRenderer.isAvailable()) {
+            this.eventBus.emit('toast', 'Rendering PDF...');
+            bitmapData = await PDFRenderer.renderPage(file, 1, 2);
+            if (bitmapData.pageCount > 1) {
+              this.eventBus.emit('toast', `Loaded page 1 of ${bitmapData.pageCount}`);
+            }
+          } else {
+            this.eventBus.emit('toast', 'PDF support not available');
+            input.value = '';
+            return;
+          }
+        } else {
+          bitmapData = await ImageLoader.fromFile(file);
+        }
+
         this.bitmapLayer.setImage(bitmapData);
 
         // Store bitmap reference on active floor

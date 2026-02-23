@@ -52,6 +52,7 @@ export class KeyboardManager {
     this.register('5', 'action:camera-walkthrough');
     this.register('ctrl+s', 'action:save');
     this.register('ctrl+o', 'action:open');
+    this.register('ctrl+e', 'action:export');
     this.register('f', 'action:fit-view');
     this.register('g', 'action:toggle-grid');
     this.register('tab', 'action:toggle-view');

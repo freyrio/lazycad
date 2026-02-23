@@ -8,6 +8,13 @@
   <title>BlueprintForge</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
 </head>
 <body>
   <div id="app">
@@ -32,7 +39,14 @@
   </div>
 
   <input type="file" id="file-input" accept="image/*,.pdf" style="display:none">
+  <input type="file" id="project-input" accept=".bpf.json,.json" style="display:none">
 
   <script type="module" src="src/app.js"></script>
+  <script>
+    // Register service worker for offline capability
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
 </body>
 </html>
