@@ -106,13 +106,54 @@ export class SelectTool {
    * Hit-test all elements on the active floor.
    */
   _hitTest(floor, wx, wy, margin) {
+    // Test openings first (they sit on walls, so should be prioritized)
+    for (const opening of floor.openings) {
+      const wall = floor.getWall(opening.wallId);
+      if (!wall) continue;
+      const posData = wall.pointAtDistance(opening.position);
+      if (!posData) continue;
+      const dx = wx - posData.point.x;
+      const dy = wy - posData.point.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < opening.width / 2 + margin) {
+        return { id: opening.id, type: 'opening', element: opening };
+      }
+    }
+
     // Test walls
     for (const wall of floor.walls) {
       if (wall.hitTest(wx, wy, margin)) {
         return { id: wall.id, type: 'wall', element: wall };
       }
     }
+
+    // Test rooms (point-in-polygon)
+    for (const room of floor.rooms) {
+      if (room.polygon.length >= 3) {
+        if (this._pointInPolygon(wx, wy, room.polygon)) {
+          return { id: room.id, type: 'room', element: room };
+        }
+      }
+    }
+
     return null;
+  }
+
+  /**
+   * Simple point-in-polygon test using ray casting.
+   */
+  _pointInPolygon(px, py, polygon) {
+    let inside = false;
+    const n = polygon.length;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const pi = polygon[i];
+      const pj = polygon[j];
+      if ((pi.y > py) !== (pj.y > py) &&
+          px < (pj.x - pi.x) * (py - pi.y) / (pj.y - pi.y) + pi.x) {
+        inside = !inside;
+      }
+    }
+    return inside;
   }
 
   /**
@@ -123,11 +164,11 @@ export class SelectTool {
     this._selectedType = type;
     this.eventBus.emit('selection:changed', { id, type });
 
-    // Update wall layer selection
-    if (this.ctx.wallLayer) {
-      this.ctx.wallLayer.setSelected(type === 'wall' ? id : null);
-      this.ctx.viewport.markDirty('vectors');
-    }
+    // Update layer selections
+    if (this.ctx.wallLayer) this.ctx.wallLayer.setSelected(type === 'wall' ? id : null);
+    if (this.ctx.openingLayer) this.ctx.openingLayer.setSelected(type === 'opening' ? id : null);
+    if (this.ctx.roomLayer) this.ctx.roomLayer.setSelected(type === 'room' ? id : null);
+    this.ctx.viewport.markDirty('vectors');
   }
 
   /**
@@ -139,10 +180,10 @@ export class SelectTool {
       this._selectedType = null;
       this.eventBus.emit('selection:changed', { id: null, type: null });
 
-      if (this.ctx.wallLayer) {
-        this.ctx.wallLayer.setSelected(null);
-        this.ctx.viewport.markDirty('vectors');
-      }
+      if (this.ctx.wallLayer) this.ctx.wallLayer.setSelected(null);
+      if (this.ctx.openingLayer) this.ctx.openingLayer.setSelected(null);
+      if (this.ctx.roomLayer) this.ctx.roomLayer.setSelected(null);
+      this.ctx.viewport.markDirty('vectors');
     }
   }
 
@@ -157,6 +198,11 @@ export class SelectTool {
 
     if (this._selectedType === 'wall') {
       floor.removeWall(this._selectedId);
+      if (this.ctx.wallLayer) this.ctx.wallLayer.invalidateJoins();
+    } else if (this._selectedType === 'opening') {
+      floor.removeOpening(this._selectedId);
+    } else if (this._selectedType === 'room') {
+      floor.rooms = floor.rooms.filter(r => r.id !== this._selectedId);
     }
 
     this.deselect();

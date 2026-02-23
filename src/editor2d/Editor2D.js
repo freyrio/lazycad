@@ -6,6 +6,9 @@ import { Viewport2D } from './Viewport2D.js';
 import { BitmapLayer } from './layers/BitmapLayer.js';
 import { GridLayer } from './layers/GridLayer.js';
 import { WallLayer } from './layers/WallLayer.js';
+import { OpeningLayer } from './layers/OpeningLayer.js';
+import { RoomLayer } from './layers/RoomLayer.js';
+import { AnnotationLayer } from './layers/AnnotationLayer.js';
 import { CursorLayer } from './layers/CursorLayer.js';
 import { SnapLayer } from './layers/SnapLayer.js';
 import { InputManager } from '../input/InputManager.js';
@@ -17,6 +20,8 @@ import { SelectTool } from './tools/SelectTool.js';
 import { EraseTool } from './tools/EraseTool.js';
 import { MeasureTool } from './tools/MeasureTool.js';
 import { CalibrateTool } from './tools/CalibrateTool.js';
+import { OpeningTool } from './tools/OpeningTool.js';
+import { RoomTool } from './tools/RoomTool.js';
 import { ImageLoader } from '../io/ImageLoader.js';
 
 export class Editor2D {
@@ -41,20 +46,30 @@ export class Editor2D {
     // Create layers
     this.bitmapLayer = new BitmapLayer(eventBus);
     this.gridLayer = new GridLayer(eventBus);
+    this.roomLayer = new RoomLayer(eventBus);
     this.wallLayer = new WallLayer(eventBus);
+    this.openingLayer = new OpeningLayer(eventBus);
+    this.annotationLayer = new AnnotationLayer(eventBus);
     this.cursorLayer = new CursorLayer(eventBus);
     this.snapLayer = new SnapLayer(eventBus);
 
-    // Register layers to their respective canvases
+    // Register layers to their respective canvases (order matters: back to front)
     this.viewport.addRenderer('bitmap', this.bitmapLayer);
     this.viewport.addRenderer('grid', this.gridLayer);
+    this.viewport.addRenderer('vectors', this.roomLayer);
     this.viewport.addRenderer('vectors', this.wallLayer);
+    this.viewport.addRenderer('vectors', this.openingLayer);
+    this.viewport.addRenderer('vectors', this.annotationLayer);
     this.viewport.addRenderer('interaction', this.cursorLayer);
     this.viewport.addRenderer('interaction', this.snapLayer);
 
-    // Set floor for wall layer
+    // Set floor for all data layers
     if (this.blueprint.activeFloor) {
-      this.wallLayer.setFloor(this.blueprint.activeFloor);
+      const floor = this.blueprint.activeFloor;
+      this.wallLayer.setFloor(floor);
+      this.openingLayer.setFloor(floor);
+      this.roomLayer.setFloor(floor);
+      this.annotationLayer.setFloor(floor);
     }
 
     // Create snap engine
@@ -76,6 +91,9 @@ export class Editor2D {
       cursorLayer: this.cursorLayer,
       snapLayer: this.snapLayer,
       wallLayer: this.wallLayer,
+      openingLayer: this.openingLayer,
+      roomLayer: this.roomLayer,
+      annotationLayer: this.annotationLayer,
       history: this.history,
       platform: this.platform,
     };
@@ -87,6 +105,17 @@ export class Editor2D {
     this.toolStateMachine.register('erase', new EraseTool(eventBus, this.toolContext));
     this.toolStateMachine.register('measure', new MeasureTool(eventBus, this.toolContext));
     this.toolStateMachine.register('calibrate', new CalibrateTool(eventBus, this.toolContext));
+
+    // Opening tools: door and window use same OpeningTool with different type
+    const doorTool = new OpeningTool(eventBus, this.toolContext);
+    doorTool.setOpeningType('door');
+    this.toolStateMachine.register('door', doorTool);
+
+    const windowTool = new OpeningTool(eventBus, this.toolContext);
+    windowTool.setOpeningType('window');
+    this.toolStateMachine.register('window', windowTool);
+
+    this.toolStateMachine.register('room', new RoomTool(eventBus, this.toolContext));
 
     // Expose calibrate tool for dialog callback
     this.calibrateTool = this.toolStateMachine.getTool('calibrate');
@@ -161,10 +190,34 @@ export class Editor2D {
     });
 
     // Redraw on data changes
-    this.eventBus.on('history:undo', () => this.viewport.markDirty('vectors'));
-    this.eventBus.on('history:redo', () => this.viewport.markDirty('vectors'));
+    this.eventBus.on('history:undo', () => {
+      this.wallLayer.invalidateJoins();
+      this.viewport.markDirty('vectors');
+    });
+    this.eventBus.on('history:redo', () => {
+      this.wallLayer.invalidateJoins();
+      this.viewport.markDirty('vectors');
+    });
     this.eventBus.on('viewport:redraw', () => this.viewport.markAllDirty());
-    this.eventBus.on('property:changed', () => this.viewport.markDirty('vectors'));
+    this.eventBus.on('property:changed', () => {
+      this.wallLayer.invalidateJoins();
+      this.viewport.markDirty('vectors');
+    });
+
+    // Invalidate joins when walls change
+    this.eventBus.on('walltool:finish', () => {
+      this.wallLayer.invalidateJoins();
+    });
+
+    // Openings placed
+    this.eventBus.on('opening:placed', () => {
+      this.viewport.markDirty('vectors');
+    });
+
+    // Room created
+    this.eventBus.on('room:created', () => {
+      this.viewport.markDirty('vectors');
+    });
 
     // Layer bitmap changes
     this.eventBus.on('layer:bitmap:changed', () => this.viewport.markDirty('bitmap'));

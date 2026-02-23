@@ -1,55 +1,68 @@
 /**
  * WallLayer — Renders walls with thickness on the vectors canvas.
+ * Uses WallJoin for proper miter geometry at wall connections.
  */
+import { WallJoin } from '../../core/geometry/WallJoin.js';
+
 export class WallLayer {
   constructor(eventBus) {
     this.eventBus = eventBus;
     this.visible = true;
     this.wallColor = '#4fc3f7';
     this.wallFill = 'rgba(79, 195, 247, 0.15)';
+    this.exteriorColor = '#4fc3f7';
+    this.interiorColor = '#90caf9';
     this.selectedColor = '#e94560';
     this.selectedFill = 'rgba(233, 69, 96, 0.2)';
     this.endpointRadius = 4; // screen pixels
 
     this._floor = null;
     this._selectedId = null;
+    this._joinGraph = null;
+    this._graphDirty = true;
   }
 
-  /**
-   * Set the floor to render.
-   * @param {Floor} floor
-   */
   setFloor(floor) {
     this._floor = floor;
+    this._graphDirty = true;
   }
 
-  /**
-   * Set the selected wall ID for highlighting.
-   */
   setSelected(wallId) {
     this._selectedId = wallId;
   }
 
   /**
-   * Render all walls.
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {Viewport2D} viewport
+   * Invalidate the join graph (call when walls change).
    */
+  invalidateJoins() {
+    this._graphDirty = true;
+  }
+
+  /**
+   * Rebuild the wall join graph if dirty.
+   */
+  _ensureGraph() {
+    if (!this._graphDirty || !this._floor) return;
+    if (this._floor.walls.length > 0) {
+      this._joinGraph = WallJoin.buildGraph(this._floor.walls);
+    } else {
+      this._joinGraph = null;
+    }
+    this._graphDirty = false;
+  }
+
   render(ctx, viewport) {
     if (!this.visible || !this._floor) return;
 
-    const walls = this._floor.walls;
-    const scale = viewport.scale;
+    this._ensureGraph();
 
+    const walls = this._floor.walls;
     for (const wall of walls) {
       const isSelected = wall.id === this._selectedId;
       this._renderWall(ctx, viewport, wall, isSelected);
     }
   }
 
-  /**
-   * Render a single wall.
-   */
   _renderWall(ctx, viewport, wall, isSelected) {
     const points = wall.points;
     if (points.length < 2) return;
@@ -57,16 +70,25 @@ export class WallLayer {
     const scale = viewport.scale;
     const thicknessScreen = wall.thickness * scale;
 
-    // Determine colors
-    const strokeColor = isSelected ? this.selectedColor : this.wallColor;
-    const fillColor = isSelected ? this.selectedFill : this.wallFill;
+    // Color by material/exterior
+    let baseColor = this.wallColor;
+    if (!isSelected) {
+      baseColor = wall.isExterior ? this.exteriorColor : this.interiorColor;
+    }
+    const strokeColor = isSelected ? this.selectedColor : baseColor;
+    const fillColor = isSelected ? this.selectedFill : `${baseColor}26`; // 15% alpha
 
     ctx.save();
 
-    // If wall is thick enough to show as filled polygon
     if (thicknessScreen > 3) {
-      // Draw wall outline polygon
-      const outline = wall.getOutlinePolygon();
+      // Use join-aware outline if graph is available
+      let outline;
+      if (this._joinGraph) {
+        outline = this._joinGraph.computeOutline(wall);
+      } else {
+        outline = wall.getOutlinePolygon();
+      }
+
       if (outline.length >= 3) {
         ctx.beginPath();
         const first = viewport.worldToScreen(outline[0].x, outline[0].y);
@@ -84,7 +106,7 @@ export class WallLayer {
         ctx.stroke();
       }
     } else {
-      // Draw as a simple line when zoomed out
+      // Simple line when zoomed out
       ctx.beginPath();
       const first = viewport.worldToScreen(points[0].x, points[0].y);
       ctx.moveTo(first.x, first.y);

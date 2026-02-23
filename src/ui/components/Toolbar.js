@@ -38,6 +38,12 @@ export class Toolbar {
         icon: `<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="3" y1="12" x2="21" y2="12"/></svg>`,
         shortcut: 'N',
       },
+      {
+        name: 'room',
+        label: 'Room',
+        icon: `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1" fill="none"/><text x="12" y="15" text-anchor="middle" font-size="9" fill="currentColor" stroke="none">R</text></svg>`,
+        shortcut: 'R',
+      },
       { separator: true },
       {
         name: 'calibrate',

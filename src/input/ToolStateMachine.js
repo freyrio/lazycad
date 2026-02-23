@@ -33,6 +33,7 @@ export class ToolStateMachine {
     this.eventBus.on('tool:measure', () => this.activate('measure'));
     this.eventBus.on('tool:erase', () => this.activate('erase'));
     this.eventBus.on('tool:calibrate', () => this.activate('calibrate'));
+    this.eventBus.on('tool:room', () => this.activate('room'));
   }
 
   /**

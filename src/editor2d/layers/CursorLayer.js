@@ -33,6 +33,9 @@ export class CursorLayer {
     // Calibration
     this.calibrationPoints = []; // [{x,y}, ...] placed calibration markers
     this.loupe = null; // { screenX, screenY, worldX, worldY, radius, zoom, offsetX, offsetY }
+
+    // Opening preview
+    this.openingPreview = null; // { wall, position, type, width }
   }
 
   /**
@@ -152,6 +155,11 @@ export class CursorLayer {
       }
     }
 
+    // Draw opening preview
+    if (this.openingPreview) {
+      this._renderOpeningPreview(ctx, viewport);
+    }
+
     // Draw calibration markers
     if (this.calibrationPoints.length > 0) {
       for (let i = 0; i < this.calibrationPoints.length; i++) {
@@ -232,6 +240,54 @@ export class CursorLayer {
     }
 
     ctx.restore();
+  }
+
+  /**
+   * Render an opening preview on the hovered wall.
+   */
+  _renderOpeningPreview(ctx, viewport) {
+    const op = this.openingPreview;
+    if (!op.wall) return;
+
+    const posData = op.wall.pointAtDistance(op.position);
+    if (!posData) return;
+
+    const center = posData.point;
+    const dir = posData.direction;
+    const halfWidth = op.width / 2;
+
+    const startPt = { x: center.x - dir.x * halfWidth, y: center.y - dir.y * halfWidth };
+    const endPt = { x: center.x + dir.x * halfWidth, y: center.y + dir.y * halfWidth };
+
+    const s1 = viewport.worldToScreen(startPt.x, startPt.y);
+    const s2 = viewport.worldToScreen(endPt.x, endPt.y);
+    const sc = viewport.worldToScreen(center.x, center.y);
+
+    const color = op.type === 'door' ? '#81c784' : op.type === 'window' ? '#64b5f6' : '#ffb74d';
+
+    // Preview line along wall
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(s1.x, s1.y);
+    ctx.lineTo(s2.x, s2.y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Center dot
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(sc.x, sc.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Width label
+    const label = `${op.width.toFixed(1)}m ${op.type}`;
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = color;
+    ctx.fillText(label, sc.x, sc.y - 12);
   }
 
   /**

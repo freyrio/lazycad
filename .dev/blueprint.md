@@ -577,16 +577,16 @@ Or as a single ZIP file with `.bpf` extension for portability.
 
 **Goal: Proper wall geometry with doors and windows**
 
-- [ ] Wall join detection (L, T, X joints)
-- [ ] Miter computation for corner joins
-- [ ] Wall connectivity graph
-- [ ] Opening tool: tap on wall to place door/window
-- [ ] Opening properties: width, height, sill height, swing direction
-- [ ] Standard opening presets (IS standard door sizes)
-- [ ] 2D door/window symbols rendering
-- [ ] Dimension annotations (auto-measure between walls)
-- [ ] Room detection (flood fill between walls) or manual room drawing
-- [ ] Room labels
+- [x] Wall join detection (L, T, X joints)
+- [x] Miter computation for corner joins
+- [x] Wall connectivity graph
+- [x] Opening tool: tap on wall to place door/window
+- [x] Opening properties: width, height, sill height, swing direction
+- [x] Standard opening presets (IS standard door sizes)
+- [x] 2D door/window symbols rendering
+- [x] Dimension annotations (auto-measure between walls)
+- [x] Room detection (flood fill between walls) or manual room drawing
+- [x] Room labels
 
 **Deliverable**: Complete 2D floor plan with walls, openings, and room labels.
 
